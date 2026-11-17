@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Colorado — Precipitation &amp; Wildland Fire</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <div id="map" aria-label="Map of Colorado"></div>
+
+  <aside id="panel">
+    <button id="panel-toggle" aria-label="Hide or show panel">⟨</button>
+    <div id="panel-inner">
+      <header>
+        <h1>Colorado: Precipitation &amp; Wildland Fire</h1>
+        <p class="sub">Does less rain mean more fire? Precipitation from PRISM (4&nbsp;km) with historic fire perimeters from NIFC.</p>
+      </header>
+
+      <section>
+        <h2>Precipitation layer</h2>
+        <div class="seg" role="radiogroup" id="mode">
+          <button data-mode="mean" class="on" role="radio" aria-checked="true">Average</button>
+          <button data-mode="year" role="radio" aria-checked="false">Single year</button>
+          <button data-mode="anom" role="radio" aria-checked="false">Year vs. avg</button>
+        </div>
+        <div id="year-row" class="row hidden">
+          <button id="play" class="icon-btn" aria-label="Play through years">▶</button>
+          <input id="year" type="range" min="2000" max="2024" step="1" value="2020" aria-label="Year">
+          <output id="year-out">2020</output>
+        </div>
+        <div id="legend"></div>
+        <label class="row small">Opacity
+          <input id="opacity" type="range" min="0" max="100" value="70">
+        </label>
+      </section>
+
+      <section>
+        <h2>Fire perimeters</h2>
+        <label class="chk"><input type="checkbox" id="show-fires" checked> Show fire perimeters</label>
+        <label class="chk"><input type="checkbox" id="fires-year-only" checked> In year views, only show that year's fires</label>
+        <label class="chk"><input type="checkbox" id="show-old"> Include fires before the precipitation period</label>
+        <label class="chk"><input type="checkbox" id="show-rx"> Include prescribed burns</label>
+        <label class="row small">Minimum size
+          <select id="min-acres">
+            <option value="0">All sizes</option>
+            <option value="100">100+ acres</option>
+            <option value="1000" selected>1,000+ acres</option>
+            <option value="10000">10,000+ acres</option>
+          </select>
+        </label>
+        <p class="stat" id="fire-count"></p>
+      </section>
+
+      <section>
+        <h2>Where fires burn, by average precipitation</h2>
+        <div class="legend-inline">
+          <span><i class="sw sw-area"></i>Share of Colorado's land</span>
+          <span><i class="sw sw-fire"></i>Share of acres burned</span>
+        </div>
+        <div id="chart-bins" class="chart"></div>
+        <p class="note">Bars to the right of the blue bar mean fire burns that precipitation zone more than its size alone would predict. Uses the fires currently shown.</p>
+      </section>
+
+      <section>
+        <h2>Year by year</h2>
+        <p class="chart-title">Statewide average precipitation (inches)<span id="precip-avg" style="font-weight:400;color:#52514e"></span></p>
+        <div id="chart-precip" class="chart"></div>
+        <p class="chart-title">Acres burned (wildfire)</p>
+        <div id="chart-acres" class="chart"></div>
+        <div id="corr" class="corr"></div>
+        <details>
+          <summary>Show as table</summary>
+          <div id="year-table"></div>
+        </details>
+        <p class="note">Click a year to view it on the map.</p>
+      </section>
+
+      <footer>
+        <p>Data: <a href="https://prism.oregonstate.edu" target="_blank" rel="noopener">PRISM Climate Group, Oregon State University</a> (annual precipitation, 4&nbsp;km);
+        <a href="https://data-nifc.opendata.arcgis.com/datasets/nifc::interagencyfireperimeterhistory-all-years-view" target="_blank" rel="noopener">NIFC Interagency Fire Perimeter History</a>.
+        Acres are perimeter (GIS) acres and may include unburned islands. Correlation is not causation — fuels, wind, temperature and ignitions matter too.</p>
+      </footer>
+    </div>
+  </aside>
+
+  <div id="readout" class="hidden"></div>
+  <div id="tip" class="hidden" role="tooltip"></div>
+  <div id="msg" class="hidden"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
