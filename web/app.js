@@ -26,7 +26,7 @@
 
   const state = {
     mode: "mean", year: 2020, opacity: 0.7,
-    showFires: true, yearOnly: true, showOld: false, showRx: false, minAcres: 1000,
+    showFires: true, yearOnly: true, showOld: false, showRx: false, minAcres: 1000, showNames: true,
   };
   let P = null;          // precip grid object
   let FIRES = null;      // geojson
@@ -41,6 +41,8 @@
   map.createPane("precip").style.zIndex = 350;
   map.createPane("fires").style.zIndex = 420;
   map.createPane("labels").style.zIndex = 460;
+  map.createPane("firelabels").style.zIndex = 470;
+  map.getPane("firelabels").style.pointerEvents = "none";
   map.getPane("labels").style.pointerEvents = "none";
 
   const esri = (svc, opts = {}) => L.tileLayer(
@@ -64,6 +66,8 @@
   L.control.scale({ imperial: true, metric: true, position: "bottomright" }).addTo(map);
 
   const fireRenderer = L.canvas({ pane: "fires", tolerance: 4 });
+  const nameLayer = L.layerGroup().addTo(map);
+  let shownFires = [];
 
   // ----------------------------------------------------------------- grid helpers
   function cellIndex(lat, lon) {
@@ -191,8 +195,49 @@
         },
       }).addTo(map);
     }
+    shownFires = feats;
+    renderNames();
     renderBinChart(feats);
   }
+
+  // ----------------------------------------------------------------- fire name labels
+  // Fewer, bigger fires when zoomed out; overlapping labels are skipped (biggest fire wins).
+  function minAcresForZoom(z) {
+    return z <= 6 ? 50000 : z === 7 ? 15000 : z === 8 ? 4000 : z === 9 ? 1000 : z === 10 ? 200 : 0;
+  }
+  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  function renderNames() {
+    nameLayer.clearLayers();
+    if (!state.showFires || !state.showNames || !shownFires.length) return;
+    const z = map.getZoom(), minA = minAcresForZoom(z);
+    const view = map.getBounds().pad(0.15);
+    const showYear = state.mode === "mean" || !state.yearOnly;
+    const placed = [];
+    const sorted = shownFires.slice().sort((a, b) => (b.properties.acres || 0) - (a.properties.acres || 0));
+    for (const f of sorted) {
+      const p = f.properties;
+      if ((p.acres || 0) < minA) break;
+      if (!p.name || /^unnamed$/i.test(p.name)) continue;
+      const ll = L.latLng(p.cy, p.cx);
+      if (!view.contains(ll)) continue;
+      const big = (p.acres || 0) >= 20000;
+      const label = p.name.replace(/\s+fire$/i, "");
+      const w = Math.ceil(label.length * (big ? 7.4 : 6.6) + (showYear ? 34 : 0)) + 8, h = big ? 18 : 16;
+      const pt = map.latLngToContainerPoint(ll);
+      const box = { x0: pt.x - w / 2, x1: pt.x + w / 2, y0: pt.y - h / 2, y1: pt.y + h / 2 };
+      if (placed.some((q) => box.x0 < q.x1 && box.x1 > q.x0 && box.y0 < q.y1 && box.y1 > q.y0)) continue;
+      placed.push(box);
+      L.marker(ll, {
+        pane: "firelabels", interactive: false, keyboard: false,
+        icon: L.divIcon({
+          className: "fire-label" + (big ? " big" : ""), iconSize: [w, h], iconAnchor: [w / 2, h / 2],
+          html: `${esc(label)}${showYear ? ` <span>${p.year}</span>` : ""}`,
+        }),
+      }).addTo(nameLayer);
+      if (placed.length >= 200) break;
+    }
+  }
+  map.on("zoomend moveend", renderNames);
 
   // ----------------------------------------------------------------- tooltip helper
   const tip = $("tip");
@@ -410,7 +455,7 @@
     state.opacity = e.target.value / 100; if (precipOverlay) precipOverlay.setOpacity(state.opacity);
   });
   const bindChk = (id, key) => $(id).addEventListener("change", (e) => { state[key] = e.target.checked; renderFires(); });
-  bindChk("show-fires", "showFires"); bindChk("fires-year-only", "yearOnly");
+  bindChk("show-fires", "showFires"); bindChk("show-names", "showNames"); bindChk("fires-year-only", "yearOnly");
   bindChk("show-old", "showOld"); bindChk("show-rx", "showRx");
   $("min-acres").addEventListener("change", (e) => { state.minAcres = +e.target.value; renderFires(); });
   $("panel-toggle").addEventListener("click", () => {
